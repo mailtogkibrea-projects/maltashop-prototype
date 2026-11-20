@@ -1,0 +1,31 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint (syntax check all services)
+        run: python -m compileall -q order inventory payment notification
+
+      - name: Build images once (same images are what we run)
+        run: docker compose build
+
+      - name: Start the whole system
+        run: docker compose up -d --wait --wait-timeout 120
+
+      - name: Smoke test the place-order saga
+        run: ./scripts/smoke_test.sh
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --tail=100
+
+      - name: Stop
+        if: always()
+        run: docker compose down -v

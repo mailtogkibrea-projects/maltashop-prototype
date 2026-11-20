@@ -1,0 +1,54 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  order:
+    build: ./order
+    environment:
+      SERVICE_NAME: order
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/%2F
+    ports: ["8001:8000"]
+    volumes: ["order-data:/data"]
+    depends_on: { rabbitmq: { condition: service_healthy } }
+
+  inventory:
+    build: ./inventory
+    environment:
+      SERVICE_NAME: inventory
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/%2F
+    ports: ["8002:8000"]
+    volumes: ["inventory-data:/data"]
+    depends_on: { rabbitmq: { condition: service_healthy } }
+
+  payment:
+    build: ./payment
+    environment:
+      SERVICE_NAME: payment
+      DECLINE_ABOVE: ${DECLINE_ABOVE:-1000}
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/%2F
+    volumes: ["payment-data:/data"]
+    depends_on: { rabbitmq: { condition: service_healthy } }
+
+  notification:
+    build: ./notification
+    environment:
+      SERVICE_NAME: notification
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@rabbitmq:5672/%2F
+    ports: ["8004:8000"]
+    volumes: ["notification-data:/data"]
+    depends_on: { rabbitmq: { condition: service_healthy } }
+
+volumes:
+  order-data:
+  inventory-data:
+  payment-data:
+  notification-data:
